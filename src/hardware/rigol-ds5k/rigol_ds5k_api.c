@@ -1,0 +1,106 @@
+/*
+ * This file is part of the libsigrok project.
+ *
+ * Copyright (C) 2026 <user>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <config.h>
+#include <string.h>
+#include <libusb.h>
+#include <libsigrok/libsigrok.h>
+#include "libsigrok-internal.h"
+#include "protocol.h"
+
+static const uint32_t scanopts[] = {
+	SR_CONF_CONN,
+};
+
+static const uint32_t drvopts[] = {
+	SR_CONF_OSCILLOSCOPE,
+};
+
+static const uint32_t devopts[] = {
+	SR_CONF_CONN | SR_CONF_GET,
+	SR_CONF_LIMIT_FRAMES | SR_CONF_GET | SR_CONF_SET,
+};
+
+static const struct rigol_ds5k_profile dev_profiles[] = {
+	{ 0x0400, 0xc55d, "Rigol", "DS5102MA" },
+	{ 0, 0, NULL, NULL },
+};
+
+static GSList *scan(struct sr_dev_driver *di, GSList *options)
+{
+	return NULL;
+}
+
+static int dev_open(struct sr_dev_inst *sdi)
+{
+	return SR_OK;
+}
+
+static int dev_close(struct sr_dev_inst *sdi)
+{
+	return SR_OK;
+}
+
+static int config_get(uint32_t key, GVariant **data, const struct sr_dev_inst *sdi,
+		       const struct sr_channel_group *cg)
+{
+	return SR_OK;
+}
+
+static int config_set(uint32_t key, GVariant *data, const struct sr_dev_inst *sdi,
+		       const struct sr_channel_group *cg)
+{
+	return SR_OK;
+}
+
+static int config_list(uint32_t key, GVariant **data, const struct sr_dev_inst *sdi,
+		       const struct sr_channel_group *cg)
+{
+	return SR_OK;
+}
+
+static int dev_acquisition_start(const struct sr_dev_inst *sdi)
+{
+	return SR_OK;
+}
+
+static int dev_acquisition_stop(struct sr_dev_inst *sdi)
+{
+	return SR_OK;
+}
+
+static struct sr_dev_driver rigol_ds5k_driver_info = {
+	.name = "rigol-ds5k",
+	.longname = "Rigol DS5000",
+	.api_version = 1,
+	.init = std_init,
+	.cleanup = std_cleanup,
+	.scan = scan,
+	.dev_list = std_dev_list,
+	.dev_clear = std_dev_clear,
+	.config_get = config_get,
+	.config_set = config_set,
+	.config_list = config_list,
+	.dev_open = dev_open,
+	.dev_close = dev_close,
+	.dev_acquisition_start = dev_acquisition_start,
+	.dev_acquisition_stop = dev_acquisition_stop,
+	.context = NULL,
+};
+SR_REGISTER_DEV_DRIVER(rigol_ds5k_driver_info);

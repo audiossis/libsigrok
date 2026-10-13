@@ -1011,3 +1011,5 @@ Note: This release does NOT change the libsigrok API.
 
  * Initial release.
 
+
+2026-10-13: New hardware driver: Rigol DS5000 series (rigol-ds5k).

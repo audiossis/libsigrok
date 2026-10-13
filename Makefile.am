@@ -1146,3 +1146,10 @@ dist-changelog:
 		rm -f .ChangeLog.tmp; exit 1; \
 	fi
 
+
+if HW_RIGOL_DS5K
+src_libdrivers_la_SOURCES += \
+	src/hardware/rigol-ds5k/protocol.h \
+	src/hardware/rigol-ds5k/protocol.c \
+	src/hardware/rigol-ds5k/api.c
+endif
