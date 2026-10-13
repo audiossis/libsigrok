@@ -1,22 +1,3 @@
-/*
- * This file is part of the libsigrok project.
- *
- * Copyright (C) 2026 <user>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 #include <config.h>
 #include <string.h>
 #include <libusb.h>
@@ -24,10 +5,22 @@
 #include "libsigrok-internal.h"
 #include "protocol.h"
 
+static const uint32_t scanopts[] = {
+	SR_CONF_CONN,
+};
+
+static const uint32_t drvopts[] = {
+	SR_CONF_OSCILLOSCOPE,
+};
+
+static const uint32_t devopts[] = {
+	SR_CONF_CONN | SR_CONF_GET,
+};
+
 static GSList *scan(struct sr_dev_driver *di, GSList *options)
 {
-	(void)di;
-	return NULL;
+	(void)di; (void)options;
+	return std_scan_complete(di, NULL);
 }
 
 static int dev_open(struct sr_dev_inst *sdi)
@@ -43,24 +36,32 @@ static int dev_close(struct sr_dev_inst *sdi)
 }
 
 static int config_get(uint32_t key, GVariant **data, const struct sr_dev_inst *sdi,
-		       const struct sr_channel_group *cg)
+               const struct sr_channel_group *cg)
 {
 	(void)key; (void)data; (void)sdi; (void)cg;
-	return SR_OK;
+	return SR_ERR_NA;
 }
 
 static int config_set(uint32_t key, GVariant *data, const struct sr_dev_inst *sdi,
-		       const struct sr_channel_group *cg)
+               const struct sr_channel_group *cg)
 {
 	(void)key; (void)data; (void)sdi; (void)cg;
-	return SR_OK;
+	return SR_ERR_NA;
 }
 
 static int config_list(uint32_t key, GVariant **data, const struct sr_dev_inst *sdi,
-		       const struct sr_channel_group *cg)
+               const struct sr_channel_group *cg)
 {
-	(void)key; (void)data; (void)sdi; (void)cg;
-	return SR_OK;
+	if (!cg) {
+		switch (key) {
+		case SR_CONF_SCAN_OPTIONS:
+		case SR_CONF_DEVICE_OPTIONS:
+			return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
+		default:
+			return SR_ERR_NA;
+		}
+	}
+	return SR_ERR_NA;
 }
 
 static int dev_acquisition_start(const struct sr_dev_inst *sdi)
