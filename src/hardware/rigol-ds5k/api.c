@@ -17,21 +17,105 @@ static const uint32_t devopts[] = {
 	SR_CONF_CONN | SR_CONF_GET,
 };
 
+#define RIGOL_DS5K_VID 0x0400
+#define RIGOL_DS5K_PID 0xc55d
+
+static struct sr_dev_inst *probe_device(struct sr_usb_dev_inst *usb)
+{
+	struct sr_dev_inst *sdi;
+
+	sdi = g_malloc0(sizeof(struct sr_dev_inst));
+	sdi->vendor = g_strdup("Rigol");
+	sdi->model = g_strdup("DS5102MA");
+	sdi->status = SR_ST_INACTIVE;
+	sdi->inst_type = SR_INST_USB;
+	sdi->conn = usb;
+	sdi->driver = NULL;
+	struct rigol_ds5k_state *state = g_malloc0(sizeof(struct rigol_ds5k_state));
+	state->usb = usb;
+	sdi->priv = state;
+
+	return sdi;
+}
+
 static GSList *scan(struct sr_dev_driver *di, GSList *options)
 {
-	(void)di; (void)options;
-	return std_scan_complete(di, NULL);
+	struct drv_context *drvc;
+	struct sr_dev_inst *sdi;
+	struct sr_usb_dev_inst *usb;
+	struct sr_config *src;
+	struct libusb_device_descriptor des;
+	libusb_device **devlist;
+	GSList *devices = NULL, *l;
+	const char *conn = NULL;
+	int i, bus, addr;
+
+	drvc = di->context;
+	for (l = options; l; l = l->next) {
+		src = l->data;
+		if (src->key == SR_CONF_CONN) {
+			conn = g_variant_get_string(src->data, NULL);
+			break;
+		}
+	}
+
+	if (libusb_get_device_list(drvc->sr_ctx->libusb_ctx, &devlist) < 0)
+		return std_scan_complete(di, NULL);
+
+	for (i = 0; devlist[i]; i++) {
+		if (libusb_get_device_descriptor(devlist[i], &des) < 0)
+			continue;
+		if (des.idVendor != RIGOL_DS5K_VID ||
+		    des.idProduct != RIGOL_DS5K_PID)
+			continue;
+
+		bus = libusb_get_bus_number(devlist[i]);
+		addr = libusb_get_device_address(devlist[i]);
+		usb = sr_usb_dev_inst_new(bus, addr, NULL);
+		sdi = probe_device(usb);
+		devices = g_slist_append(devices, sdi);
+	}
+
+	libusb_free_device_list(devlist, 1);
+
+	return std_scan_complete(di, devices);
 }
 
 static int dev_open(struct sr_dev_inst *sdi)
 {
-	(void)sdi;
+	struct sr_usb_dev_inst *usb = sdi->conn;
+	int r;
+
+	if (sr_usb_open(((struct drv_context *)sdi->driver->context)->sr_ctx->libusb_ctx, usb) != SR_OK) {
+		sr_err("Failed to open Rigol DS5000USB.");
+		return SR_ERR;
+	}
+
+	r = libusb_claim_interface(usb->devhdl, 0);
+	if (r < 0) {
+		if (libusb_kernel_driver_active(usb->devhdl, 0)) {
+			libusb_detach_kernel_driver(usb->devhdl, 0);
+			r = libusb_claim_interface(usb->devhdl, 0);
+		}
+	}
+	if (r < 0) {
+		sr_err("Failed to claim interface: %s", libusb_error_name(r));
+		sr_usb_close(usb);
+		return SR_ERR;
+	}
+	sr_dbg("Rigol DS5000USB opened.");
+
 	return SR_OK;
 }
 
 static int dev_close(struct sr_dev_inst *sdi)
 {
-	(void)sdi;
+	struct sr_usb_dev_inst *usb = sdi->conn;
+
+	if (usb->devhdl) {
+		libusb_release_interface(usb->devhdl, 0);
+		sr_usb_close(usb);
+	}
 	return SR_OK;
 }
 
