@@ -161,10 +161,96 @@ static int config_list(uint32_t key, GVariant **data, const struct sr_dev_inst *
 	return SR_ERR_NA;
 }
 
+static int rigol_ds5k_acquire(const struct sr_dev_inst *sdi)
+{
+	struct sr_usb_dev_inst *usb = sdi->conn;
+	struct sr_channel_group *cg;
+	struct sr_channel *ch;
+	struct sr_datafeed_analog analog;
+	struct sr_analog_encoding encoding;
+	struct sr_analog_meaning meaning;
+	struct sr_analog_spec spec;
+	struct sr_datafeed_packet packet;
+	guint8 *buf;
+	float *values;
+	unsigned char len_byte;
+	int totalsize = 11264;
+	int bytes_read = 0;
+	unsigned int transferred;
+	int status;
+	gint r;
+
+	if (!usb->devhdl) {
+		if (sr_usb_open(((struct drv_context *)sdi->driver->context)->sr_ctx->libusb_ctx, usb) != SR_OK)
+			return SR_ERR;
+		if (libusb_claim_interface(usb->devhdl, 0) < 0)
+			return SR_ERR;
+	}
+
+	/* Vendor bulk read setup as traced from Ultrascope (partial frame). */
+	libusb_control_transfer(usb->devhdl, 0x40, 8, 80, 0, NULL, 0, 1000);
+	libusb_control_transfer(usb->devhdl, 0x40, 9, 11264, 0, NULL, 0, 1000);
+	libusb_control_transfer(usb->devhdl, 0x40, 7, 0, 0, NULL, 0, 1000);
+
+	buf = g_malloc(totalsize);
+	while (bytes_read < totalsize) {
+		r = libusb_bulk_transfer(usb->devhdl, 0x81, buf + bytes_read,
+				totalsize - bytes_read, (int *)&transferred, 2000);
+		if (r != LIBUSB_SUCCESS) {
+			sr_err("DS5000 bulk read failed: %s.", libusb_error_name(r));
+			g_free(buf);
+			return SR_ERR;
+		}
+		if (transferred <= 0)
+			break;
+		bytes_read += (int)transferred;
+	}
+
+	if (bytes_read <= 0) {
+		sr_err("DS5000 bulk read returned no data.");
+		g_free(buf);
+		return SR_ERR;
+	}
+
+	values = g_malloc(bytes_read * sizeof(float));
+	for (int j = 0; j < bytes_read; j++)
+		values[j] = (float)buf[j];
+
+	packet.type = SR_DF_HEADER;
+	packet.payload = NULL;
+	if (sr_session_send(sdi, &packet) < 0)
+		sr_dbg("send header failed");
+
+	cg = sdi->channel_groups ? sdi->channel_groups->data : NULL;
+	if (!cg || !cg->channels)
+		return SR_OK;
+	ch = cg->channels->data;
+
+	memset(&encoding, 0, sizeof(encoding));
+	memset(&meaning, 0, sizeof(meaning));
+	memset(&spec, 0, sizeof(spec));
+	meaning.channels = cg->channels;
+	sr_analog_init(&analog, &encoding, &meaning, &spec, 8);
+
+	analog.encoding = &encoding;
+	analog.meaning = &meaning;
+	analog.spec = &spec;
+	analog.data = values;
+	analog.num_samples = bytes_read;
+
+	packet.type = SR_DF_ANALOG;
+	packet.payload = &analog;
+	sr_session_send(sdi, &packet);
+
+	std_session_send_df_header(sdi);
+	g_free(buf);
+	g_free(values);
+	return SR_OK;
+}
+
 static int dev_acquisition_start(const struct sr_dev_inst *sdi)
 {
-	(void)sdi;
-	return SR_OK;
+	return rigol_ds5k_acquire(sdi);
 }
 
 static int dev_acquisition_stop(struct sr_dev_inst *sdi)
