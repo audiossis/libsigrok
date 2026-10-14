@@ -23,6 +23,9 @@ static const uint32_t devopts[] = {
 static struct sr_dev_inst *probe_device(struct sr_usb_dev_inst *usb)
 {
 	struct sr_dev_inst *sdi;
+	struct rigol_ds5k_state *state;
+	struct sr_channel_group *cg;
+	struct sr_channel *ch0, *ch1;
 
 	sdi = g_malloc0(sizeof(struct sr_dev_inst));
 	sdi->vendor = g_strdup("Rigol");
@@ -31,9 +34,19 @@ static struct sr_dev_inst *probe_device(struct sr_usb_dev_inst *usb)
 	sdi->inst_type = SR_INST_USB;
 	sdi->conn = usb;
 	sdi->driver = NULL;
-	struct rigol_ds5k_state *state = g_malloc0(sizeof(struct rigol_ds5k_state));
+
+	state = g_malloc0(sizeof(struct rigol_ds5k_state));
 	state->usb = usb;
 	sdi->priv = state;
+
+	cg = sr_channel_group_new(sdi, "Channels", NULL);
+	ch0 = sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "CH1");
+	ch1 = sr_channel_new(sdi, 1, SR_CHANNEL_ANALOG, TRUE, "CH2");
+	cg->channels = g_slist_append(cg->channels, ch0);
+	cg->channels = g_slist_append(cg->channels, ch1);
+	sdi->channels = g_slist_append(sdi->channels, ch0);
+	sdi->channels = g_slist_append(sdi->channels, ch1);
+	sdi->channel_groups = g_slist_append(sdi->channel_groups, cg);
 
 	return sdi;
 }
